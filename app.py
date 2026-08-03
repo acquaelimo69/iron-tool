@@ -502,6 +502,18 @@ with st.sidebar.expander("Salva scenario corrente", expanded=False):
             st.rerun()
         else:
             st.warning("Inserisci un nome.")
+    _export_name = (scenario_name.strip() or "scenario").replace(" ", "_")
+    _export_bytes = json.dumps({"name": _export_name, "params": SCENARIO_DATA},
+                               ensure_ascii=False, indent=2).encode("utf-8")
+    st.download_button(
+        "Scarica JSON",
+        data=_export_bytes,
+        file_name=f"{_export_name}.json",
+        mime="application/json",
+        use_container_width=True,
+        key="export_scenario",
+        help="Esporta lo scenario corrente come file JSON, da ricaricare in qualsiasi sessione",
+    )
 
 with st.sidebar.expander("Importa scenario da file", expanded=False):
     uploaded = st.file_uploader("Carica un file .json", type=["json"], key="import_scenario")
@@ -522,7 +534,7 @@ if st.session_state["scenarios"]:
         for nome in list(st.session_state["scenarios"].keys()):
             c1, c2, c3 = st.columns([2, 1, 1])
             c1.caption(nome)
-            if c2.button("⟳", key=f"load_{nome}", help="Carica questo scenario nei parametri"):
+            if c2.button("⟳ Carica", key=f"load_{nome}", help="Carica questo scenario nei parametri"):
                 st.session_state["load_scenario"] = nome
                 st.rerun()
             if c3.button("✕", key=f"del_{nome}", help="Elimina scenario"):
@@ -541,6 +553,8 @@ if st.session_state["scenarios"]:
             if c_no.button("No, annulla", key="cancel_del"):
                 st.session_state["pending_delete"] = None
                 st.rerun()
+else:
+    st.sidebar.caption("Nessuno scenario. Importa un file .json per iniziare.")
 
 # ═════════════════════════════════════════════════════════════════════════════
 # ENGINE CALLS
