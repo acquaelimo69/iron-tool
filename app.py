@@ -62,7 +62,7 @@ def _load_scenarios_from_disk() -> dict:
 
 # ─── Page Config ───────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Investment Analyzer",
+    page_title="Iron Tool",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded",
