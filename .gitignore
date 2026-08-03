@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Streamlit local secrets (non committare mai)
+.streamlit/secrets.toml
+
+# Dati utente: scenari salvati localmente
+scenarios/
+
+# macOS
+.DS_Store
