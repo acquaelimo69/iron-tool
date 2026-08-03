@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 import io
 import json
+import hashlib
 
 from engine import (
     InvestmentParams,
@@ -473,18 +474,23 @@ with st.sidebar.expander("Salva scenario corrente", expanded=False):
     )
 
 with st.sidebar.expander("Importa scenario da file", expanded=False):
+    st.caption("Carica un JSON esportato: i dati vengono applicati subito ai parametri.")
     uploaded = st.file_uploader("Carica un file .json", type=["json"], key="import_scenario")
     if uploaded is not None:
-        try:
-            raw = json.load(uploaded)
-            imported_name = raw.get("name", uploaded.name.replace(".json", ""))
-            imported_params = raw.get("params", raw)
-            st.session_state["scenarios"][imported_name] = imported_params
-            _save_scenario_to_disk(imported_name, imported_params)
-            st.success(f"Scenario '{imported_name}' importato!")
-            st.rerun()
-        except (json.JSONDecodeError, KeyError):
-            st.error("File non valido. Formato atteso: {\"name\": \"...\", \"params\": {...}}")
+        raw_bytes = uploaded.getvalue()
+        fp = hashlib.md5(raw_bytes).hexdigest()
+        if st.session_state.get("_last_import_fp") != fp:
+            st.session_state["_last_import_fp"] = fp
+            try:
+                raw = json.loads(raw_bytes.decode("utf-8"))
+                imported_name = raw.get("name", uploaded.name.replace(".json", ""))
+                imported_params = raw.get("params", raw)
+                st.session_state["scenarios"][imported_name] = imported_params
+                st.session_state["load_scenario"] = imported_name
+                st.success(f"Scenario '{imported_name}' importato e caricato nei parametri!")
+                st.rerun()
+            except (json.JSONDecodeError, KeyError, UnicodeDecodeError):
+                st.error("File non valido. Formato atteso: {\"name\": \"...\", \"params\": {...}}")
 
 if st.session_state["scenarios"]:
     with st.sidebar.expander("Scenari salvati", expanded=True):
