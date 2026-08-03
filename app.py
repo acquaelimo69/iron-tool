@@ -117,7 +117,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🏢 Real Estate Investment Analyzer")
+st.title("🏢 Iron Tool")
 st.caption("Simulazione avanzata rendimenti immobiliari, leva finanziaria, cash flow e confronto ETF")
 
 # ═════════════════════════════════════════════════════════════════════════════
