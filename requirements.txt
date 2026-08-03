@@ -6,4 +6,4 @@ openpyxl>=3.1.0
 scipy>=1.11.0
 pytest>=7.0.0
 weasyprint>=66.0
-kaleido>=0.2.0
+kaleido==0.2.1
