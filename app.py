@@ -4,8 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 import io
 import json
-import os
-import re
 
 from engine import (
     InvestmentParams,
@@ -41,66 +39,24 @@ def fmt(val, decimali=0):
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-# ─── Scenario persistence ───────────────────────────────────────────────────
-
-SCENARIOS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scenarios")
-
-
-def _sanitize_filename(name: str) -> str:
-    s = name.strip().lower()
-    s = re.sub(r"[^\w\s-]", "", s)
-    s = re.sub(r"[\s]+", "_", s)
-    return s or "scenario"
-
-
-def _ensure_scenarios_dir():
-    """Crea la cartella degli scenari. Su cloud (fs read-only) è un no-op."""
-    try:
-        os.makedirs(SCENARIOS_DIR, exist_ok=True)
-    except OSError:
-        pass
+# ─── Scenario persistence (session-only) ────────────────────────────────────
+# Massima privacy: nessun file su disco. Gli scenari vivono solo in session_state
+# della sessione corrente e si perdono al refresh/chiusura (usare "Scarica JSON").
 
 
 def _save_scenario_to_disk(name: str, data: dict):
-    """Salva lo scenario su disco (utile in locale). Su cloud non è possibile:
-    lo scenario resta comunque disponibile in session_state per la sessione."""
-    try:
-        _ensure_scenarios_dir()
-        path = os.path.join(SCENARIOS_DIR, f"{_sanitize_filename(name)}.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({"name": name, "params": data}, f, ensure_ascii=False, indent=2)
-    except OSError:
-        pass
+    """Session-only: lo scenario resta in session_state, nessun file scritto."""
+    pass
 
 
 def _delete_scenario_from_disk(name: str):
-    try:
-        path = os.path.join(SCENARIOS_DIR, f"{_sanitize_filename(name)}.json")
-        if os.path.exists(path):
-            os.remove(path)
-    except OSError:
-        pass
+    """Session-only: nessun file da eliminare."""
+    pass
 
 
 def _load_scenarios_from_disk() -> dict:
-    """Scenari salvati localmente. Su cloud non ci sono: si parte vuoti
-    e si popola la sessione solo con gli upload JSON."""
-    scenarios = {}
-    try:
-        _ensure_scenarios_dir()
-        for fname in os.listdir(SCENARIOS_DIR):
-            if not fname.endswith(".json"):
-                continue
-            path = os.path.join(SCENARIOS_DIR, fname)
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                scenarios[raw["name"]] = raw["params"]
-            except (json.JSONDecodeError, KeyError):
-                continue
-    except OSError:
-        pass
-    return scenarios
+    """Session-only: si parte sempre vuoti."""
+    return {}
 
 
 # ─── Page Config ───────────────────────────────────────────────────────────
@@ -492,6 +448,7 @@ SCENARIO_DATA = {
 }
 
 with st.sidebar.expander("Salva scenario corrente", expanded=False):
+    st.caption("Salvataggio SOLO in questa sessione: al refresh o alla chiusura si perde. Usa \"Scarica JSON\" per conservarlo.")
     scenario_name = st.text_input("Nome scenario", key="new_scenario_name")
     if st.button("Salva", use_container_width=True):
         if scenario_name.strip():
@@ -534,7 +491,7 @@ if st.session_state["scenarios"]:
         for nome in list(st.session_state["scenarios"].keys()):
             c1, c2, c3 = st.columns([2, 1, 1])
             c1.caption(nome)
-            if c2.button("⟳ Carica", key=f"load_{nome}", help="Carica questo scenario nei parametri"):
+            if c2.button("⟳", key=f"load_{nome}", help="Carica questo scenario nei parametri"):
                 st.session_state["load_scenario"] = nome
                 st.rerun()
             if c3.button("✕", key=f"del_{nome}", help="Elimina scenario"):
