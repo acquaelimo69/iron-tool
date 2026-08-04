@@ -10,6 +10,8 @@
 6. [Algoritmi Chiave](#6-algoritmi-chiave)
 7. [Setup e Avvio](#7-setup-e-avvio)
 8. [Testing](#8-testing)
+9. [Proposte Future](#9-proposte-future)
+10. [Deploy su Streamlit Community Cloud](#10-deploy-su-streamlit-community-cloud)
 
 ---
 
@@ -35,7 +37,7 @@ Applicazione Streamlit per la simulazione finanziaria di investimenti immobiliar
 ## 2. Struttura
 
 ```
-calcolo_inv/
+iron-tool/
 ├── app.py                 # Interfaccia Streamlit (frontend + rendering)
 ├── engine.py              # Modello finanziario (calcoli, dataclass, formule)
 ├── report.py              # Generazione report PDF

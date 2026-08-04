@@ -272,7 +272,13 @@ Ogni anno si rivaluta:
 Valore Anno t = Valore Iniziale × (1 + Rivalutazione Annua)^t
 ```
 
-Se l'utente inserisce un **Prezzo di Vendita** fisso > 0, questo sostituisce il valore calcolato.
+Se l'utente inserisce un **Prezzo di Vendita** fisso > 0, questo viene rivalutato annualmente con la stessa formula:
+
+```
+Prezzo Vendita Effettivo = Prezzo di Vendita × (1 + Rivalutazione Annua)^t
+```
+
+In questo modo la rivalutazione si applica sia al valore di mercato stimato sia al prezzo di vendita fisso inserito dall'utente.
 
 ### Spese di Agenzia alla Vendita
 

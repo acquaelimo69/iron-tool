@@ -400,8 +400,7 @@ if usa_mutuo and anni_mut > anni_sim:
     st.sidebar.warning(f"⚠️ Durata mutuo ({anni_mut} anni) supera l'orizzonte simulazione ({anni_sim} anni).")
 if affitto_lordo == 0 and usa_mutuo and mutuo_val > 0:
     st.sidebar.warning("⚠️ Affitto 0 con mutuo attivo — CF negativo strutturale.")
-if rivalutazione > 0 and prezzo_vendita_val > 0:
-    st.sidebar.warning("⚠️ Prezzo di vendita fisso e rivalutazione annua attivi insieme — la rivalutazione verrà ignorata.")
+
 
 # --- 5. Scenari Salvati (persistenza su disco) ---
 st.sidebar.markdown("---")

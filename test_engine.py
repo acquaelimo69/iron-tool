@@ -230,6 +230,23 @@ class TestProiezione:
         assert df[df["Anno"] == 11].iloc[0]["Detrazione"] == 0.0
         assert df[df["Anno"] == 1].iloc[0]["Detrazione"] > 0.0
 
+    def test_prezzo_vendita_rivalutato(self):
+        prezzo_vendita = 100000.0
+        rivalutazione = 0.03
+        p = _default_params(
+            prezzo_vendita=prezzo_vendita,
+            rivalutazione_annua=rivalutazione,
+            agenzia_vendita_pct=0.0,
+            agenzia_vendita_fissa=0.0,
+        )
+        df = proiezione(p)
+        for _, row in df.iterrows():
+            t = int(row["Anno"])
+            expected = prezzo_vendita * (1 + rivalutazione) ** t
+            assert abs(row["Valore_Immobile"] - expected) < 0.01, (
+                f"Anno {t}: atteso {expected:.2f}, trovato {row['Valore_Immobile']:.2f}"
+            )
+
 
 # ---------------------------------------------------------------------------
 # scenario_cash

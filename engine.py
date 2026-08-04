@@ -344,7 +344,10 @@ def proiezione(p: InvestmentParams) -> pd.DataFrame:
         valore_imm *= (1 + p.rivalutazione_annua)
         cap_etf *= (1 + p.rendimento_etf)
 
-        prezzo_vendita_eff = p.prezzo_vendita if p.prezzo_vendita > 0 else valore_imm
+        if p.prezzo_vendita > 0:
+            prezzo_vendita_eff = p.prezzo_vendita * (1 + p.rivalutazione_annua) ** t
+        else:
+            prezzo_vendita_eff = valore_imm
         spese_agenzia = p.agenzia_vendita_fissa if p.agenzia_vendita_fissa > 0 else prezzo_vendita_eff * (p.agenzia_vendita_pct / 100)
         realizzo = prezzo_vendita_eff - residuo - spese_agenzia
         equity_imm = (prezzo_vendita_eff - residuo - spese_agenzia) + cum_cf - p.equity
