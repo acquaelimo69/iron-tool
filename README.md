@@ -6,7 +6,7 @@
 2. [Struttura](#2-struttura)
 3. [Architettura](#3-architettura)
 4. [engine.py — Modello Finanziario](#4-enginepy--modello-finanziario)
-5. [app.py — Interfaccia Streamlit](#5-apppy--interfaccia-streamlit)
+5. [Interfaccia Streamlit](#5-interfaccia-streamlit-apppy-ui_sidebarpy-ui_tabspy)
 6. [Algoritmi Chiave](#6-algoritmi-chiave)
 7. [Setup e Avvio](#7-setup-e-avvio)
 8. [Testing](#8-testing)
@@ -26,11 +26,14 @@ Applicazione Streamlit per la simulazione finanziaria di investimenti immobiliar
 | UI / Dashboard | Streamlit | ≥ 1.32 |
 | Calcoli numerici | NumPy | ≥ 1.24 |
 | Tabelle dati | Pandas | ≥ 2.0 |
-| Grafici interattivi | Plotly | ≥ 5.18 |
+| Grafici interattivi | Plotly | 6.9.0 (pinnata) |
+| Export immagini grafici (per il PDF) | kaleido | 1.4.0 (pinnata) |
 | Ottimizzazione numerica | SciPy (`brentq`) | ≥ 1.11 |
 | Export Excel | openpyxl | ≥ 3.1 |
 | Report PDF | weasyprint | ≥ 66.0 |
 | Testing | pytest | ≥ 7.0 |
+
+> Plotly e kaleido sono pinnati a versione esatta (non `>=`) perché un bump di kaleido ha già rotto la generazione PDF su Streamlit Cloud in passato — vedi commit `518a5f7`.
 
 ---
 
@@ -38,7 +41,10 @@ Applicazione Streamlit per la simulazione finanziaria di investimenti immobiliar
 
 ```
 iron-tool/
-├── app.py                 # Interfaccia Streamlit (frontend + rendering)
+├── app.py                 # Entrypoint Streamlit: orchestratore (page config, sidebar → engine → tabs)
+├── ui_sidebar.py           # Widget sidebar (input, validazioni, salvataggio/import scenari)
+├── ui_tabs.py               # Le 4 tab (KPI, Ammortamento, Benchmark, Dettaglio) + export Excel/PDF
+├── utils.py                # Utility condivise (fmt: formattazione numeri in stile italiano)
 ├── engine.py              # Modello finanziario (calcoli, dataclass, formule)
 ├── report.py              # Generazione report PDF
 ├── test_engine.py         # Suite di test unitari
@@ -48,7 +54,7 @@ iron-tool/
 ├── requirements.txt       # Dipendenze Python
 ├── avvia.sh               # Script di avvio per macOS/Linux
 ├── avvia.bat              # Script di avvio per Windows
-├── scenarios/             # Scenari salvati (JSON)
+├── scenarios/             # Residuo di una vecchia feature di salvataggio su disco; oggi gli scenari sono solo in-session (vedi §5.3)
 └── .streamlit/
     └── config.toml        # Configurazione Streamlit
 ```
@@ -60,28 +66,32 @@ iron-tool/
 Il progetto segue una separazione netta tra **logica di calcolo** e **presentazione**:
 
 ```
-┌─────────────────────────────────┐
-│          app.py (UI)            │
-│  ┌───────────────────────────┐  │
-│  │  Sidebar: Input parametri │  │
-│  │  Tabs: KPI / Benchmark /  │  │
-│  │         Dettaglio / Export │  │
-│  └─────────────┬─────────────┘  │
-│                │                │
-│                ▼                │
-│  ┌───────────────────────────┐  │
-│  │   engine.py (Calcoli)     │  │
-│  │  InvestmentParams (DC)    │  │
-│  │  rata_mensile()           │  │
-│  │  piano_ammortamento()     │  │
-│  │  proiezione()             │  │
-│  │  calcola_irr() / npv()    │  │
-│  │  scenario_cash()          │  │
-│  └───────────────────────────┘  │
-└─────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│  app.py — orchestratore (page config, password,   │
+│  costruisce InvestmentParams, chiama l'engine)     │
+└───────────────┬─────────────────────┬─────────────┘
+                │                     │
+                ▼                     ▼
+┌───────────────────────┐   ┌─────────────────────────┐
+│  ui_sidebar.py         │   │  ui_tabs.py               │
+│  render_sidebar()      │   │  render_tab_kpi()         │
+│  → SimpleNamespace     │   │  render_tab_mutuo()       │
+│  con tutti gli input   │   │  render_tab_benchmark()   │
+│  raccolti + scenari    │   │  render_tab_dettaglio()   │
+└───────────┬────────────┘   │  (include export Excel/PDF)│
+            │                └─────────────┬─────────────┘
+            ▼                              ▼
+        ┌───────────────────────────────────────┐
+        │           engine.py (Calcoli)          │
+        │  InvestmentParams (dataclass)          │
+        │  rata_mensile() / piano_ammortamento() │
+        │  proiezione() / scenario_cash()        │
+        │  calcola_irr() / calcola_npv()         │
+        │  calcola_rendimenti_per_anno()         │
+        └─────────────────────────────────────────┘
 ```
 
-`engine.py` è un modulo **indipendente** (usa `st.cache_data` per il caching, ma tutta la logica è testabile standalone). `app.py` gestisce input utente, layout e grafici.
+`engine.py` è un modulo **indipendente** (nessuna dipendenza da Streamlit: tutta la logica è testabile standalone con pytest). `ui_sidebar.py` e `ui_tabs.py` gestiscono rispettivamente input/layout della sidebar e rendering delle tab; `utils.py` contiene la sola funzione di formattazione (`fmt`) condivisa da entrambi. `app.py` fa da collante: raccoglie gli input dalla sidebar, costruisce `InvestmentParams`, chiama l'engine e passa i risultati alle tab.
 
 ---
 
@@ -97,7 +107,7 @@ Struttura dati centrale. Contiene tutti i parametri dell'investimento:
 | **Finanziamento** | `usa_mutuo`, `equity`, `importo_mutuo`, `tasso_interesse`, `anni_mutuo` |
 | **Affitto & Costi** | `affitto_lordo_annuo`, `cedolare`, `imu`, `condominio`, `altro_costi` |
 | **Fiscali & Benchmark** | `flag_detrazioni`, `detrazione_annua`, `anni_detrazione`, `sfitto_pct`, `capex_pct`, `rivalutazione_annua`, `rendimento_etf`, `anni_simulazione` |
-| **Opzionali** | `inflazione_annua`, `agenzia_vendita_pct`, `prezzo_vendita` |
+| **Opzionali** | `inflazione_annua`, `agenzia_vendita_pct`, `agenzia_vendita_fissa`, `prezzo_vendita` |
 | **Dettagli Mutuo Reali** | `eta_richiedente`, `costo_assicurazione`, `costo_perizia`, `classe_ape`, `taeg`, `reddito_mensile` |
 
 **Proprietà calcolate:**
@@ -201,29 +211,29 @@ Calcola la differenza in € tra rata a TAEG e rata a TAN sull'intera durata.
 
 ---
 
-## 5. app.py — Interfaccia Streamlit
+## 5. Interfaccia Streamlit (app.py, ui_sidebar.py, ui_tabs.py)
 
 ### 5.1 Layout
 
-- **Sidebar** — 5 sezioni:
+- **Sidebar** (`ui_sidebar.render_sidebar()`) — 5 sezioni, restituisce un `SimpleNamespace` con tutti gli input raccolti (consumato da `app.py` per costruire `InvestmentParams` e passato a `ui_tabs`):
   1. **Costi Acquisto** — prezzo, imposte (auto/manuale), notaio, agenzia, **perizia**, **assicurazione incendio**, computo metrico lavori, arredamento
   2. **Finanziamento** — mutuo, tasso, durata, **età richiedente**, **classe APE**, **TAEG**, **reddito mensile** + warning automatici (limite età, LTV, rata/reddito)
   3. **Affitto & Costi Operativi** — canone, cedolare, IMU, condominio, altri
   4. **Fiscali & Benchmark** — detrazione, sfitto, CapEx, vendita, benchmark ETF
-  5. **Scenari salvati** — salva/carica/elimina su disco
-- **4 Tabs:**
-  - **KPI & Sintesi** — metriche chiave, tabella rendimenti per orizzonte, miglior anno per vendere
-  - **Piano Ammortamento** — tabella dettagliata + grafico composizione rata
-  - **Benchmark ETF** — confronto immobile vs ETF con leva e cash, grafici a barre del delta
-  - **Dettaglio Completo** — tabelle voci di costo, flussi annuali, vendita, export Excel e PDF
+  5. **Scenari** — salva/carica/elimina, solo per la sessione corrente (vedi §5.3)
+- **4 Tabs** (`ui_tabs.py`, una funzione `render_tab_*` per tab):
+  - **KPI & Sintesi** (`render_tab_kpi`) — metriche chiave, tabella rendimenti per orizzonte, miglior anno per vendere
+  - **Piano Ammortamento** (`render_tab_mutuo`) — tabella dettagliata + grafico composizione rata
+  - **Benchmark ETF** (`render_tab_benchmark`) — confronto immobile vs ETF con leva e cash, grafici a barre del delta
+  - **Dettaglio Completo** (`render_tab_dettaglio`) — tabelle voci di costo, flussi annuali, vendita, export Excel e PDF
 
 ### 5.2 Formattazione numeri
 
-La funzione `fmt()` formatta i numeri in stile italiano (punto per le migliaie, virgola per i decimali): `1.234,56`.
+La funzione `fmt()` (in `utils.py`) formatta i numeri in stile italiano (punto per le migliaia, virgola per i decimali): `1.234,56`.
 
 ### 5.3 Scenari salvati
 
-Gli scenari vengono salvati in `st.session_state["scenarios"]` come dizionari serializzati. Permettono il confronto multi-scenario nella tab Dettaglio.
+Gli scenari vivono **solo in `st.session_state["scenarios"]`** per la sessione corrente (sia in locale che su cloud): non c'è persistenza su disco, per privacy dei dati. Per conservarli tra sessioni si usa "Scarica JSON" e poi "Importa scenario da file".
 
 ### 5.4 Export Excel
 
@@ -329,11 +339,12 @@ La suite testa:
 | `TestCalcolaIRR` | IRR noti, convergence, casi limite |
 | `TestCalcolaNPV` | NPV positivo/negativo/zero |
 | `TestFlussiPerIRR` | Lunghezza, primo flusso = −equity, ultimo include realizzo |
-| `TestProiezione` | Numero righe, crescita valore, effetto inflazione, scadenza detrazioni |
+| `TestProiezione` | Numero righe, crescita valore, effetto inflazione, scadenza detrazioni, rivalutazione del prezzo di vendita fisso |
 | `TestScenarioCash` | Nessuna rata mutuo, lunghezza corretta |
 | `TestValidazioneBancaria` | Limite età, LTV, rapporto rata/reddito, costo extra TAEG |
 | `TestTassoEffettivo` | Sconto APE A/B, rata con/senza sconto, floor |
 | `TestNuoviCampi` | Totale investimento con assicurazione e perizia |
+| `TestCrossoverLevaETF` | Anno di sorpasso leva vs ETF, casi "leva vince sempre" / "ETF vince sempre" |
 
 ---
 
@@ -379,7 +390,7 @@ APP_PASSWORD = "scegli_una_password_robusta"
 
 ### Comportamento su cloud
 
-- **Scenari**: non vengono salvati su disco (il filesystem è read-only). Si popolano **solo tramite upload JSON** (`Importa scenario da file`) e restano **nella singola sessione** del collaboratore. Alla chiusura o al riavvio dell'app spariscono. In locale il salvataggio su disco continua a funzionare.
+- **Scenari**: non vengono mai salvati su disco, né su cloud né in locale (per privacy dei dati — vedi §5.3). Si popolano tramite i pulsanti "Salva" (solo in sessione) o upload JSON (`Importa scenario da file`) e restano **nella singola sessione** del collaboratore. Alla chiusura o al riavvio dell'app spariscono: per conservarli va usato "Scarica JSON".
 - **PDF**: generato sul server (pango installato da `packages.txt`) e scaricato via download.
 - **Password**: gestita da `st.secrets["APP_PASSWORD"]`. Se non impostata, l'app resta aperta senza login (comodo per lo sviluppo locale).
 

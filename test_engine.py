@@ -203,8 +203,8 @@ class TestProiezione:
         expected = {
             "Anno", "Affitto_Effettivo", "Costi_Fissi", "Rata_Mutuo",
             "Detrazione", "CapEx_Accantonato", "CF_Netto_Anno", "CF_Cumulato",
-            "Capitale_Residuo_Mutuo", "Valore_Immobile", "Realizzo_Netto",
-            "Guadagno_Netto_Immobile", "Guadagno_Netto_ETF",
+            "Capitale_Residuo_Mutuo", "Valore_Immobile", "Valore_Mercato_Immobile",
+            "Realizzo_Netto", "Guadagno_Netto_Immobile", "Guadagno_Netto_ETF",
         }
         assert set(df.columns) == expected
 

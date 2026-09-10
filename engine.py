@@ -344,6 +344,9 @@ def proiezione(p: InvestmentParams) -> pd.DataFrame:
         valore_imm *= (1 + p.rivalutazione_annua)
         cap_etf *= (1 + p.rendimento_etf)
 
+        # valore_imm = valore di mercato "vero" (rivaluta il prezzo d'acquisto+lavori).
+        # prezzo_vendita_eff = quanto incassi davvero: se l'utente fissa un prezzo di
+        # vendita, questo resta l'ancora (rivalutata) anche se diverge da valore_imm.
         if p.prezzo_vendita > 0:
             prezzo_vendita_eff = p.prezzo_vendita * (1 + p.rivalutazione_annua) ** t
         else:
@@ -363,6 +366,7 @@ def proiezione(p: InvestmentParams) -> pd.DataFrame:
             "CF_Cumulato": cum_cf,
             "Capitale_Residuo_Mutuo": residuo,
             "Valore_Immobile": prezzo_vendita_eff,
+            "Valore_Mercato_Immobile": valore_imm,
             "Realizzo_Netto": realizzo,
             "Guadagno_Netto_Immobile": equity_imm,
             "Guadagno_Netto_ETF": cap_etf - p.equity,
@@ -395,6 +399,32 @@ def flussi_per_irr(df_proj: pd.DataFrame, equity: float) -> list[float]:
     last = df_proj.iloc[-1]
     flussi[-1] += last["Realizzo_Netto"]
     return flussi
+
+
+def calcola_rendimenti_per_anno(df_proj: pd.DataFrame, equity_val: float, anni_sim: int) -> tuple[pd.DataFrame, int, float]:
+    """Rendimento annualizzato (CAGR) e guadagno totale per ogni anno >= 5.
+
+    Restituisce (df_rendimenti, miglior_anno, miglior_rendimento_annuale).
+    """
+    righe = []
+    best_annual = -float("inf")
+    best_year = 0
+    for yr in range(5, anni_sim + 1):
+        if df_proj.empty or yr not in df_proj["Anno"].values:
+            continue
+        r = df_proj[df_proj["Anno"] == yr].iloc[0]
+        guadagno = r["Guadagno_Netto_Immobile"]
+        totale = guadagno + equity_val
+        rend_annuale = (totale / equity_val) ** (1 / yr) - 1 if equity_val > 0 and totale > 0 else 0.0
+        righe.append({
+            "Anno": yr,
+            "Rendimento Annuale Netto": rend_annuale,
+            "Guadagno Totale Netto": guadagno,
+        })
+        if rend_annuale > best_annual:
+            best_annual = rend_annuale
+            best_year = yr
+    return pd.DataFrame(righe), best_year, best_annual
 
 
 # ---------------------------------------------------------------------------
